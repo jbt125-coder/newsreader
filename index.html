@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>World News Reader</title>
+
+<style>
+body{
+    font-family:-apple-system,BlinkMacSystemFont,sans-serif;
+    padding:15px;
+    background:#111;
+    color:white;
+}
+h1{
+    text-align:center;
+}
+button{
+    width:100%;
+    padding:14px;
+    font-size:18px;
+    border-radius:12px;
+    border:none;
+    background:#0a84ff;
+    color:white;
+    margin-top:10px;
+}
+#status{
+    margin-top:15px;
+    font-size:14px;
+    opacity:0.9;
+}
+</style>
+</head>
+
+<body>
+
+<h1>🌍 World News Reader</h1>
+
+<button onclick="getNews()">Get Top Stories</button>
+<button onclick="openSite()">Open News Website</button>
+
+<div id="status">
+Press <b>Get Top Stories</b> to try automatic download.
+</div>
+
+<script>
+async function getNews(){
+    const status = document.getElementById("status");
+    status.innerHTML = "Contacting news feed...";
+
+    try{
+        const rssURL = "https://feeds.npr.org/1001/rss.xml";
+
+        const response = await fetch(
+            "https://api.allorigins.win/get?url=" + encodeURIComponent(rssURL)
+        );
+        const data = await response.json();
+
+        const xml = new DOMParser().parseFromString(data.contents,"text/xml");
+        const items = xml.querySelectorAll("item");
+
+        let html = "";
+
+        for(let i=0;i<5 && i<items.length;i++){
+            const title = items[i].querySelector("title").textContent;
+            const desc = items[i].querySelector("description").textContent;
+            const link = items[i].querySelector("link").textContent;
+
+            html += `
+                <div style="page-break-after:always;">
+                    <h1>${title}</h1>
+                    <p>${desc}</p>
+                    <p>${link}</p>
+                </div>
+            `;
+        }
+
+        const win = window.open("", "_blank");
+        win.document.write(html);
+        win.document.close();
+        win.print();
+
+        status.innerHTML = "If print opened → pinch to save PDFs.";
+    }
+    catch(e){
+        status.innerHTML =
+            "Automatic download blocked in local mode.<br>" +
+            "Use <b>Open News Website</b> or host the app online.";
+    }
+}
+
+function openSite(){
+    window.open("https://www.npr.org/", "_blank");
+}
+</script>
+
+</body>
+</html>
