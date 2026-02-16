@@ -14,15 +14,21 @@ body{
 h1{
     text-align:center;
 }
-button{
+button, select{
     width:100%;
     padding:14px;
     font-size:18px;
     border-radius:12px;
     border:none;
+    margin-top:10px;
+}
+button{
     background:#0a84ff;
     color:white;
-    margin-top:10px;
+}
+select{
+    background:#222;
+    color:white;
 }
 #status{
     margin-top:15px;
@@ -36,11 +42,20 @@ button{
 
 <h1>🌍 World News Reader</h1>
 
+<!-- Dropdown menu for news sources -->
+<select id="newsSource">
+    <option value="https://feeds.npr.org/1001/rss.xml">NPR</option>
+    <option value="http://feeds.bbci.co.uk/news/rss.xml">BBC News</option>
+    <option value="https://rss.cnn.com/rss/cnn_topstories.rss">CNN</option>
+    <option value="http://feeds.reuters.com/reuters/topNews">Reuters</option>
+    <option value="https://www.aljazeera.com/xml/rss/all.xml">Al Jazeera</option>
+</select>
+
 <button onclick="getNews()">Get Top Stories</button>
 <button onclick="openSite()">Open News Website</button>
 
 <div id="status">
-Press <b>Get Top Stories</b> to try automatic download.
+Select a source and press <b>Get Top Stories</b> to try automatic download.
 </div>
 
 <script>
@@ -49,7 +64,8 @@ async function getNews(){
     status.innerHTML = "Contacting news feed...";
 
     try{
-        const rssURL = "https://feeds.npr.org/1001/rss.xml";
+        const select = document.getElementById("newsSource");
+        const rssURL = select.value;
 
         const response = await fetch(
             "https://api.allorigins.win/get?url=" + encodeURIComponent(rssURL)
@@ -59,21 +75,44 @@ async function getNews(){
         const xml = new DOMParser().parseFromString(data.contents,"text/xml");
         const items = xml.querySelectorAll("item");
 
-        let html = "";
+        let html = `
+        <html>
+        <head>
+        <title>Top News</title>
+        <style>
+            body{font-family:serif;padding:20px;color:#111;}
+            h1{font-size:22px;margin-bottom:10px;}
+            p{font-size:16px;line-height:1.5;margin-bottom:10px;}
+            a{color:#0a84ff;word-break:break-word;}
+            img{max-width:100%;height:auto;margin-bottom:10px;border-radius:8px;}
+            .page{page-break-after:always;margin-bottom:40px;}
+        </style>
+        </head>
+        <body>
+        `;
 
         for(let i=0;i<5 && i<items.length;i++){
             const title = items[i].querySelector("title").textContent;
             const desc = items[i].querySelector("description").textContent;
             const link = items[i].querySelector("link").textContent;
 
+            // Extract first image if available
+            const imgMatch = desc.match(/<img.*?src="(.*?)"/);
+            const imgTag = imgMatch ? `<img src="${imgMatch[1]}">` : "";
+
+            const cleanDesc = desc.replace(/<[^>]+>/g, '');
+
             html += `
-                <div style="page-break-after:always;">
+                <div class="page">
                     <h1>${title}</h1>
-                    <p>${desc}</p>
-                    <p>${link}</p>
+                    ${imgTag}
+                    <p>${cleanDesc}</p>
+                    <p><a href="${link}" target="_blank">${link}</a></p>
                 </div>
             `;
         }
+
+        html += "</body></html>";
 
         const win = window.open("", "_blank");
         win.document.write(html);
@@ -86,11 +125,24 @@ async function getNews(){
         status.innerHTML =
             "Automatic download blocked in local mode.<br>" +
             "Use <b>Open News Website</b> or host the app online.";
+        console.error(e);
     }
 }
 
 function openSite(){
-    window.open("https://www.npr.org/", "_blank");
+    const select = document.getElementById("newsSource");
+    const rssURL = select.value;
+
+    // Map common RSS feeds to their main website
+    const siteMap = {
+        "https://feeds.npr.org/1001/rss.xml":"https://www.npr.org/",
+        "http://feeds.bbci.co.uk/news/rss.xml":"https://www.bbc.com/news",
+        "https://rss.cnn.com/rss/cnn_topstories.rss":"https://www.cnn.com/",
+        "http://feeds.reuters.com/reuters/topNews":"https://www.reuters.com/",
+        "https://www.aljazeera.com/xml/rss/all.xml":"https://www.aljazeera.com/"
+    };
+
+    window.open(siteMap[rssURL] || "https://www.npr.org/", "_blank");
 }
 </script>
 
