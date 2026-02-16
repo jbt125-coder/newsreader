@@ -48,6 +48,12 @@ select{
     background:#555;
     color:white;
 }
+#storyLinks{
+    margin-top:20px;
+}
+#storyLinks li{
+    margin-bottom:8px;
+}
 </style>
 </head>
 
@@ -55,7 +61,6 @@ select{
 
 <h1>🌍 World News Reader</h1>
 
-<!-- Dropdown menu for news sources -->
 <select id="newsSource">
     <option value="https://feeds.npr.org/1001/rss.xml">NPR</option>
     <option value="http://feeds.bbci.co.uk/news/rss.xml">BBC News</option>
@@ -67,9 +72,10 @@ select{
 <button onclick="openSite()">Open News Website</button>
 <button class="toggle-theme" onclick="toggleTheme()">Toggle Light/Dark Theme</button>
 
-<div id="status">
-Select a source and press <b>Get Top Stories</b> to generate a PDF.
-</div>
+<div id="status">Select a source and press <b>Get Top Stories</b> to generate a PDF.</div>
+
+<!-- Numbered list of story links -->
+<ol id="storyLinks"></ol>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script>
@@ -88,16 +94,28 @@ function toggleTheme(){
 
 async function getNews(){
     const status = document.getElementById("status");
-    status.innerHTML = "Fetching news...";
+    const storyLinks = document.getElementById("storyLinks");
+    storyLinks.innerHTML = "";
+    status.innerHTML = "Fetching news: 0%";
+    
+    // Simulated progress
+    let progress = 0;
+    const interval = setInterval(()=>{
+        if(progress < 90){
+            progress += Math.floor(Math.random()*5)+1;
+            if(progress>90) progress=90;
+            status.innerHTML = "Fetching news: "+progress+"%";
+        }
+    },200);
 
     try{
         const rssURL = document.getElementById("newsSource").value;
-
-        // Use AllOrigins as CORS proxy
         const response = await fetch(
             "https://api.allorigins.win/get?url=" + encodeURIComponent(rssURL)
         );
         const data = await response.json();
+        clearInterval(interval);
+        status.innerHTML = "Fetching news: 100%";
 
         const xml = new DOMParser().parseFromString(data.contents,"text/xml");
         const items = xml.querySelectorAll("item");
@@ -107,11 +125,26 @@ async function getNews(){
             return;
         }
 
+        // Populate story links below dropdown/buttons
+        for(let i=0;i<5 && i<items.length;i++){
+            const title = items[i].querySelector("title")?.textContent || "No Title";
+            const link = items[i].querySelector("link")?.textContent || "#";
+            const pubDate = items[i].querySelector("pubDate")?.textContent || "";
+            
+            const li = document.createElement("li");
+            const a = document.createElement("a");
+            a.href = link;
+            a.target="_blank";
+            a.textContent = title + " (" + pubDate + ")";
+            li.appendChild(a);
+            storyLinks.appendChild(li);
+        }
+
         // Create PDF
         const pdf = new jsPDF('p','pt','a4');
         const pageWidth = pdf.internal.pageSize.getWidth();
-        const lineHeight = 16;
         const margin = 40;
+        const lineHeight = 16;
         let y = margin;
         let pageNum = 1;
 
@@ -139,7 +172,6 @@ async function getNews(){
             pdf.setTextColor(0,0,0);
             y += 30;
 
-            // Page break if needed
             if(y > pdf.internal.pageSize.getHeight() - 60){
                 pdf.text("Page " + pageNum, pageWidth/2, pdf.internal.pageSize.getHeight()-30,{align:'center'});
                 pdf.addPage();
@@ -147,20 +179,17 @@ async function getNews(){
                 pageNum++;
             }
         }
-
-        // Add final page number
         pdf.text("Page " + pageNum, pageWidth/2, pdf.internal.pageSize.getHeight()-30,{align:'center'});
-
         pdf.save("Top_Stories.pdf");
         status.innerHTML = "PDF generated successfully!";
     }
     catch(e){
-        status.innerHTML = "Failed to fetch news. Try hosting online or using a different feed.";
+        clearInterval(interval);
+        status.innerHTML = "Failed to fetch news. You can click the links below to read stories directly.";
         console.error(e);
     }
 }
 
-// Helper to wrap text
 function addText(pdf,text,x,y,maxWidth){
     const lines = pdf.splitTextToSize(text,maxWidth-x*2);
     pdf.text(lines,x,y);
